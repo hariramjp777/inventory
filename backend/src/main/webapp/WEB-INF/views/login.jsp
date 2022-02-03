@@ -11,6 +11,6 @@
     <title>Inventory Login</title>
 </head>
 <body>
-
+    <p>Welcome!</p>
 </body>
 </html>
