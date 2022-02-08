@@ -32,7 +32,7 @@ public class ItemDAO {
         Gson gson = new Gson();
         Connection connection = Database.initializeDataBase();
         Statement statement = connection.createStatement();
-        ResultSet rs = statement.executeQuery("select item_name, item_unit, product_type, stock_on_hand, committed_stock, stock_on_hand, sales_rate, purchase_rate, organization_id  from items where id = '" + itemID + "'");
+        ResultSet rs = statement.executeQuery("select item_name, item_unit, product_type, stock_on_hand, committed_stock, available_for_sale, sales_rate, purchase_rate, organization_id  from items where id = '" + itemID + "'");
         if (rs.next())  {
             JsonObject json = gson.toJsonTree(new Object()).getAsJsonObject();
             json.addProperty("code", 0);

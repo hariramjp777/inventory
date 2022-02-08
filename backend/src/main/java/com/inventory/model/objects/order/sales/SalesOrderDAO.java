@@ -20,17 +20,18 @@ public class SalesOrderDAO {
         int salesOrderID = rs.getInt(1);
         for(Order order : orders) {
             Statement statement1 = connection.createStatement();
-            ResultSet rs1 = statement1.executeQuery("select sales_rate, stock_on_hand from items where id = '" + order.itemID + "'");
+            ResultSet rs1 = statement1.executeQuery("select sales_rate, stock_on_hand, committed_stock from items where id = '" + order.itemID + "'");
             rs1.next();
             int ratePerQuantity = rs1.getInt(1);
             int stockOnHand = rs1.getInt(2);
+            int committedStock = rs1.getInt(3);
             PreparedStatement preparedStatement1 = connection.prepareStatement("insert into itemsalesorders (item_id, quantity, rate_per_quantity, sales_order_id) values (?,?,?,?)");
             preparedStatement1.setInt(1, order.itemID);
             preparedStatement1.setInt(2, order.quantity);
             preparedStatement1.setInt(3, ratePerQuantity);
             preparedStatement1.setInt(4, salesOrderID);
             preparedStatement1.executeUpdate();
-            int committedStock = order.quantity;
+            committedStock += order.quantity;
             int availableForSale = stockOnHand - committedStock;
             PreparedStatement preparedStatement2 = connection.prepareStatement("update items set committed_stock = ? where id = ?");
             preparedStatement2.setInt(1, committedStock);
