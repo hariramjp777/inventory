@@ -1,9 +1,8 @@
-package com.controller;
+package com.inventory.controller;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.model.objects.order.Order;
-import com.model.objects.order.sales.SalesOrderDAO;
+import com.inventory.model.objects.organization.OrganizationDAO;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -12,8 +11,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.SQLException;
 
-@WebServlet("/salesorder")
-public class SalesOrderServlet extends HttpServlet {
+@WebServlet("/organization")
+public class OrganizationServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
@@ -21,26 +20,20 @@ public class SalesOrderServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        OrganizationDAO organizationDAO = new OrganizationDAO();
+        Gson gson = new Gson();
         Object sessionUserEmail = request.getSession().getAttribute("user");
         if (sessionUserEmail == null) {
             response.setContentType("application/json");
-            response.setStatus(400);
+            response.setStatus(403);
             response.getWriter().println("{'code': '1000'}");
         }
-        else {
-            int organizationID = Integer.parseInt(request.getParameter("organization_id"));
-            int customerID = Integer.parseInt(request.getParameter("customer_id"));
-            String salesOrderRefNumber = request.getParameter("salesorder_ref_number");
-            String lineItems = request.getParameter("line_items");
-            System.out.println(lineItems);
-            Gson gson = new Gson();
-            Order[] orders = gson.fromJson(lineItems, Order[].class);
-            for (Order order : orders) {
-                System.out.println(order.itemID + " " + order.quantity);
-            }
-            SalesOrderDAO salesOrderDAO = new SalesOrderDAO();
+        if (sessionUserEmail != null) {
+            String organizationName = request.getParameter("organization_name");
+            String industryType = request.getParameter("industry_type");
+            String country = request.getParameter("country");
             try {
-                JsonObject json = salesOrderDAO.placeSalesOrder(organizationID, customerID, salesOrderRefNumber, orders);
+                JsonObject json = organizationDAO.createOrganization(organizationName, industryType, country, sessionUserEmail.toString());
                 PrintWriter out = response.getWriter();
                 response.setContentType("application/json");
                 if (json.get("code").toString().equals("0")) {
@@ -56,6 +49,7 @@ public class SalesOrderServlet extends HttpServlet {
             } catch (ClassNotFoundException e) {
                 e.printStackTrace();
             }
+
         }
     }
 }

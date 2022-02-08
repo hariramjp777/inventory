@@ -1,4 +1,4 @@
-package com.model.objects.user;
+package com.inventory.model.objects.user;
 
 public class User {
     private String firstName;

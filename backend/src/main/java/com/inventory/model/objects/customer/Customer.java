@@ -1,4 +1,4 @@
-package com.model.objects.customer;
+package com.inventory.model.objects.customer;
 
 public class Customer {
     private String contactName;

@@ -1,4 +1,4 @@
-package com.model.objects.item;
+package com.inventory.model.objects.item;
 
 public class Item {
     private String itemName;

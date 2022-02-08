@@ -1,8 +1,8 @@
-package com.model.objects.customer;
+package com.inventory.model.objects.customer;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.model.database.Database;
+import com.inventory.model.database.Database;
 
 import java.sql.*;
 

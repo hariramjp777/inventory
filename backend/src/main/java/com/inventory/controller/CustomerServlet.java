@@ -1,8 +1,8 @@
-package com.controller;
+package com.inventory.controller;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.model.objects.item.ItemDAO;
+import com.inventory.model.objects.customer.CustomerDAO;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -11,8 +11,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.SQLException;
 
-@WebServlet("/item")
-public class ItemServlet extends HttpServlet {
+@WebServlet("/customer")
+public class CustomerServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
@@ -20,7 +20,7 @@ public class ItemServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        ItemDAO itemDAO = new ItemDAO();
+        CustomerDAO customerDAO = new CustomerDAO();
         Gson gson = new Gson();
         Object sessionUserEmail = request.getSession().getAttribute("user");
         if (sessionUserEmail == null) {
@@ -29,15 +29,13 @@ public class ItemServlet extends HttpServlet {
             response.getWriter().println("{'code': '1000'}");
         }
         else {
-            String itemName = request.getParameter("item_name");
-            String itemUnit = request.getParameter("item_unit");
-            String productType = request.getParameter("product_type");
-            int stockOnHand = Integer.parseInt(request.getParameter("stock_on_hand"));
-            float salesRate = Float.parseFloat(request.getParameter("sales_rate"));
-            float purchaseRate = Float.parseFloat(request.getParameter("purchase_rate"));
+            String contactName = request.getParameter("contact_name");
+            String companyName = request.getParameter("company_name");
+            String customerType = request.getParameter("customer_type");
+            String country = request.getParameter("country");
             int organizationID = Integer.parseInt(request.getParameter("organization_id"));
             try {
-                JsonObject json = itemDAO.createItem(itemName, itemUnit, productType, stockOnHand, salesRate, purchaseRate, organizationID);
+                JsonObject json = customerDAO.createCustomer(contactName, companyName, customerType, country, organizationID);
                 PrintWriter out = response.getWriter();
                 response.setContentType("application/json");
                 if (json.get("code").toString().equals("0")) {

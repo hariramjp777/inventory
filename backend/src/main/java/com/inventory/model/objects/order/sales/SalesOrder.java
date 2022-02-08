@@ -1,6 +1,6 @@
-package com.model.objects.order.sales;
+package com.inventory.model.objects.order.sales;
 
-import com.model.objects.order.Order;
+import com.inventory.model.objects.order.Order;
 
 public class SalesOrder {
     private int organizationID;

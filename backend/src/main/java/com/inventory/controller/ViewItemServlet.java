@@ -1,7 +1,7 @@
-package com.controller;
+package com.inventory.controller;
 
 import com.google.gson.JsonObject;
-import com.model.objects.item.ItemDAO;
+import com.inventory.model.objects.item.ItemDAO;
 
 import javax.servlet.*;
 import javax.servlet.http.*;

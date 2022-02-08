@@ -1,9 +1,9 @@
-package com.model.objects.order.sales;
+package com.inventory.model.objects.order.sales;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.model.database.Database;
-import com.model.objects.order.Order;
+import com.inventory.model.database.Database;
+import com.inventory.model.objects.order.Order;
 
 import java.sql.*;
 

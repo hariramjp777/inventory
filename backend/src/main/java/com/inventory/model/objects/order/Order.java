@@ -1,4 +1,4 @@
-package com.model.objects.order;
+package com.inventory.model.objects.order;
 
 public class Order {
     public int itemID;

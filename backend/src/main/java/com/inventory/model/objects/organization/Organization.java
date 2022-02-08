@@ -1,6 +1,4 @@
-package com.model.objects.organization;
-
-import com.model.objects.user.User;
+package com.inventory.model.objects.organization;
 
 public class Organization {
     private int organizationID;
