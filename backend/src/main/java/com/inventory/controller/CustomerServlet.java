@@ -2,7 +2,11 @@ package com.inventory.controller;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.inventory.auth.Authentication;
+import com.inventory.model.objects.customer.Customer;
 import com.inventory.model.objects.customer.CustomerDAO;
+import com.inventory.model.objects.user.User;
+import org.json.JSONObject;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -15,40 +19,60 @@ import java.sql.SQLException;
 public class CustomerServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        CustomerDAO customerDAO = new CustomerDAO();
-        Gson gson = new Gson();
-        Object sessionUserEmail = request.getSession().getAttribute("user");
-        if (sessionUserEmail == null) {
-            response.setContentType("application/json");
+        PrintWriter out = response.getWriter();
+        response.setContentType("application/json");
+        if (!Authentication.isAuthenticated(request)) {
             response.setStatus(400);
             response.getWriter().println("{'code': '1000'}");
         }
         else {
-            String contactName = request.getParameter("contact_name");
-            String companyName = request.getParameter("company_name");
-            String customerType = request.getParameter("customer_type");
-            String country = request.getParameter("country");
-            int organizationID = Integer.parseInt(request.getParameter("organization_id"));
             try {
-                JsonObject json = customerDAO.createCustomer(contactName, companyName, customerType, country, organizationID);
-                PrintWriter out = response.getWriter();
-                response.setContentType("application/json");
-                if (json.get("code").toString().equals("0")) {
+                User user = Authentication.getUser(request);
+                int organizationID = Integer.parseInt(request.getParameter("organization_id"));
+                int customerID = Integer.parseInt(request.getParameter("customer_id"));
+                CustomerDAO customerDAO = new CustomerDAO();
+                JSONObject resultJSON = customerDAO.getCustomer(organizationID, customerID);
+                if (resultJSON.getInt("code") == 0) {
                     response.setStatus(200);
-                    out.println(json.toString());
+                    out.println(resultJSON.toString());
                 }
                 else {
                     response.setStatus(404);
-                    out.println(json.toString());
+                    out.println(resultJSON.toString());
                 }
-            } catch (SQLException e) {
+            } catch (SQLException | ClassNotFoundException e) {
+                response.setStatus(500);
+                out.println("{'code': '500', 'message': 'Internal Server Error'}");
                 e.printStackTrace();
-            } catch (ClassNotFoundException e) {
+            }
+
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        PrintWriter out = response.getWriter();
+        response.setContentType("application/json");
+        if (!Authentication.isAuthenticated(request)) {
+            response.setStatus(403);
+            response.getWriter().println("{'code': '1000'}");
+        } else {
+            try {
+                User user = Authentication.getUser(request);
+                int organizationID = Integer.parseInt(request.getParameter("organization_id"));
+                JSONObject customerJSON = new JSONObject(request.getParameter("json_string"));
+                CustomerDAO customerDAO = new CustomerDAO();
+                JSONObject resultJSON = customerDAO.createCustomer(new Customer(customerJSON.getString("contact_name"), customerJSON.getString("contact_email"), customerJSON.getString("country"), organizationID));
+                if (resultJSON.getInt("code") == 0) {
+                    response.setStatus(200);
+                    out.println(resultJSON.toString());
+                } else {
+                    response.setStatus(404);
+                    out.println(resultJSON.toString());
+                }
+            } catch (Exception e) {
+                response.setStatus(500);
+                out.println("{'code': '500', 'message': 'Internal Server Error'}");
                 e.printStackTrace();
             }
 

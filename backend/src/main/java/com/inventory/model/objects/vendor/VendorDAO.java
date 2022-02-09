@@ -1,27 +1,43 @@
 package com.inventory.model.objects.vendor;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.inventory.model.database.Database;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.sql.SQLException;
 
 public class VendorDAO {
-    public JsonObject createVendor(String contactName, String companyName, String country, int organizationID) throws SQLException, ClassNotFoundException {
-        Connection connection = Database.initializeDataBase();
-        PreparedStatement preparedStatement = connection.prepareStatement("insert into vendors (contact_name, company_name, country, organization_id) values (?,?,?,?)");
-        preparedStatement.setString(1, contactName);
-        preparedStatement.setString(2, companyName);
-        preparedStatement.setString(3, country);
-        preparedStatement.setInt(4, organizationID);
-        preparedStatement.executeUpdate();
-        Gson gson = new Gson();
-        JsonObject json = gson.toJsonTree(new Object()).getAsJsonObject();
-        json.addProperty("code", 0);
-        json.addProperty("message", "success");
-        json.add("created_vendor", gson.toJsonTree(new Vendor(contactName, companyName, country, organizationID)));
+    public JSONObject createVendor(Vendor vendor) throws Exception {
+        JSONObject json = new JSONObject();
+        int aiID = Database.executeUpdate("insert into vendors (contact_name, contact_email, company_name, country, payables, unused_credits, organization_id) values (?,?,?,?,?,?,?)", new Object[] {
+                vendor.getContactName(),
+                vendor.getContactEmail(),
+                vendor.getCompanyName(),
+                vendor.getCountry(),
+                vendor.getPayables(),
+                vendor.getUnusedCredits(),
+                vendor.getOrganizationID()
+        });
+        json.put("code", 0);
+        json.put("message", "success");
+        json.put("created_vendor", Database.executeQuery("select id, contact_name, contact_email, company_name, country, payables, unused_credits, organization_id, vendor_created_date from vendors where ai_id = '" +
+                aiID + "'").getJSONArray("result").get(0));
+        return json;
+    }
+
+    public JSONObject getVendor(int organizationID, int vendorID) throws SQLException, ClassNotFoundException {
+        JSONObject json = new JSONObject();
+        JSONObject vendorJSON = Database.executeQuery("select id, contact_name, contact_email, company_name, country, payables, unused_credits, organization_id, vendor_created_date from vendors where id = '" +
+                vendorID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resultArray = vendorJSON.getJSONArray("result");
+        if (resultArray.length() == 0) {
+            json.put("code", 105);
+            json.put("message", "No vendor found");
+            return json;
+        }
+        json.put("code", 0);
+        json.put("message", "success");
+        json.put("vendor", resultArray.getJSONObject(0));
         return json;
     }
 }

@@ -3,46 +3,50 @@ package com.inventory.model.objects.item;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.inventory.model.database.Database;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
+import javax.xml.crypto.Data;
 import java.sql.*;
 
 public class ItemDAO {
-    public JsonObject createItem(String itemName, String itemUnit, String productType, int stockOnHand, float salesRate, float purchaseRate, int organizationID) throws SQLException, ClassNotFoundException {
-        Connection connection = Database.initializeDataBase();
-        PreparedStatement preparedStatement = connection.prepareStatement("insert into items (item_name, item_unit, product_type, stock_on_hand, sales_rate, purchase_rate, organization_id, committed_stock, available_for_sale) values (?,?,?,?,?,?,?,?,?)");
-        preparedStatement.setString(1, itemName);
-        preparedStatement.setString(2, itemUnit);
-        preparedStatement.setString(3, productType);
-        preparedStatement.setInt(4, stockOnHand);
-        preparedStatement.setFloat(5, salesRate);
-        preparedStatement.setFloat(6, purchaseRate);
-        preparedStatement.setFloat(7, organizationID);
-        preparedStatement.setInt(8, 0);
-        preparedStatement.setInt(9, stockOnHand);
-        preparedStatement.executeUpdate();
-        Gson gson = new Gson();
-        JsonObject json = gson.toJsonTree(new Object()).getAsJsonObject();
-        json.addProperty("code", 0);
-        json.addProperty("message", "success");
-        json.add("created_item", gson.toJsonTree(new Item(itemName, itemUnit, productType, stockOnHand, 0, stockOnHand, salesRate, purchaseRate, organizationID)));
+    public JSONObject createItem(Item item) throws Exception {
+        JSONObject json = new JSONObject();
+        int aiID = Database.executeUpdate("insert into items (organization_id, name, unit, type, sales_rate, purchase_rate, physical_stock_on_hand, physical_committed_stock, physical_available_for_sale, accounting_stock_on_hand, accounting_committed_stock, accounting_available_for_sale) values (?,?,?,?,?,?,?,?,?,?,?,?)", new Object[] {
+                item.getOrganizationID(),
+                item.getName(),
+                item.getUnit(),
+                item.getType(),
+                item.getSalesRate(),
+                item.getPurchaseRate(),
+                item.getPhysicalStockOnHand(),
+                item.getPhysicalCommittedStock(),
+                item.getPhysicalAvailableForSale(),
+                item.getAccountingStockOnHand(),
+                item.getAccountingCommittedStock(),
+                item.getAccountingAvailableForSale()
+        });
+        json.put("code", 0);
+        json.put("message", "success");
+        json.put("created_item", Database.executeQuery("select id, name, unit, type, sales_rate, purchase_rate, physical_stock_on_hand, physical_committed_stock, physical_available_for_sale, accounting_stock_on_hand, accounting_committed_stock, accounting_available_for_sale, organization_id item_created_date from items where ai_id = '" +
+                aiID + "'").getJSONArray("result").get(0));
         return json;
     }
 
-    public JsonObject viewItem(int organizationID, int itemID) throws SQLException, ClassNotFoundException {
-        Gson gson = new Gson();
-        Connection connection = Database.initializeDataBase();
-        Statement statement = connection.createStatement();
-        ResultSet rs = statement.executeQuery("select item_name, item_unit, product_type, stock_on_hand, committed_stock, available_for_sale, sales_rate, purchase_rate, organization_id  from items where id = '" + itemID + "'");
-        if (rs.next())  {
-            JsonObject json = gson.toJsonTree(new Object()).getAsJsonObject();
-            json.addProperty("code", 0);
-            json.addProperty("message", "success");
-            json.add("item", gson.toJsonTree(new Item(rs.getString(1), rs.getString(2), rs.getString(3), rs.getInt(4), rs.getInt(5),rs.getInt(6), rs.getFloat(7), rs.getFloat(8), rs.getInt(9))));
+    public JSONObject getItem(int organizationID, int itemID) throws SQLException, ClassNotFoundException {
+        JSONObject json = new JSONObject();
+        JSONObject itemJSON = Database.executeQuery("select id, name, unit, type, sales_rate, purchase_rate, physical_stock_on_hand, physical_committed_stock, physical_available_for_sale, accounting_stock_on_hand, accounting_committed_stock, accounting_available_for_sale, organization_id, item_created_date from items where id = '" +
+                itemID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resultArray = itemJSON.getJSONArray("result");
+        if (resultArray.length() == 0) {
+            json.put("code", 105);
+            json.put("message", "No item found");
             return json;
         }
-        JsonObject json = gson.toJsonTree(new Object()).getAsJsonObject();
-        json.addProperty("code", 108);
-        json.addProperty("message", "Item doesn't exist");
+        json.put("code", 0);
+        json.put("message", "success");
+        json.put("item", resultArray.getJSONObject(0));
         return json;
     }
 }

@@ -2,6 +2,8 @@ package com.inventory.controller;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.inventory.auth.Authentication;
+import org.json.JSONObject;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -13,14 +15,15 @@ import java.io.PrintWriter;
 public class LogoutServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        request.getSession().setAttribute("user", null);
-        request.getSession().invalidate();
-        JsonObject json = new Gson().toJsonTree(new Object()).getAsJsonObject();
-        json.addProperty("code", 0);
-        json.addProperty("message", "You've been logged out");
+        PrintWriter out = response.getWriter();
         response.setContentType("application/json");
-        response.setStatus(200);
-        response.getWriter().println(json.toString());
+        JSONObject resultJSON = new JSONObject();
+        int logoutStatus = Authentication.logout(request);
+        if (logoutStatus == 1) {
+            resultJSON.put("code", 0);
+            resultJSON.put("message", "You've been logged out");
+            out.println(resultJSON.toString());
+        }
     }
 
     @Override
