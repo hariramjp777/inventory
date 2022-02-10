@@ -51,14 +51,14 @@ public class PurchaseOrderDAO {
             if (purchaseOrder.isReceived()) {
                 Database.executeUpdate("update items set physical_stock_on_hand=?, physical_available_for_sale=? where id = ?", new Object[] {
                         physicalStockOnHand + order.getQuantity(),
-                        physicalAvailableForSale - order.getQuantity(),
+                        physicalAvailableForSale + order.getQuantity(),
                         order.getItemID()
                 });
             }
             if (purchaseOrder.isBilled()) {
                 Database.executeUpdate("update items set accounting_stock_on_hand=?, accounting_available_for_sale=? where id = ?", new Object[] {
                         accountingStockOnHand + order.getQuantity(),
-                        accountingAvailableForSale - order.getQuantity(),
+                        accountingAvailableForSale + order.getQuantity(),
                         order.getItemID()
                 });
             }

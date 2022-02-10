@@ -5,6 +5,7 @@ import com.inventory.model.objects.order.Order;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import javax.xml.crypto.Data;
 import java.sql.SQLException;
 import java.util.Objects;
 
@@ -36,6 +37,7 @@ public class SalesOrderDAO {
             int accountingStockOnHand = result.getJSONObject(0).getInt("accounting_stock_on_hand");
             int physicalCommittedStock = result.getJSONObject(0).getInt("physical_committed_stock");
             int accountingCommittedStock = result.getJSONObject(0).getInt("accounting_committed_stock");
+            int accountingAvailableForSale = result.getJSONObject(0).getInt("accounting_available_for_sale");
             if (physicalAvailableForSale < order.getQuantity()) {
                 throw new Exception("Insufficient items");
             }
@@ -55,7 +57,7 @@ public class SalesOrderDAO {
                         physicalCommittedStock + order.getQuantity(),
                         physicalAvailableForSale - order.getQuantity(),
                         accountingCommittedStock + order.getQuantity(),
-                        accountingCommittedStock - order.getQuantity(),
+                        accountingAvailableForSale - order.getQuantity(),
                         order.getItemID()
                 });
             }
@@ -103,5 +105,100 @@ public class SalesOrderDAO {
         json.put("code", 0);
         json.put("sales_order", resultArray.get(0));
         return json;
+    }
+
+    public JSONObject openSalesOrder(int organizationID, int salesOrderID) throws Exception {
+        JSONObject resJSON = Database.executeQuery("select status from salesorders where id = '" +
+                salesOrderID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resArray = resJSON.getJSONArray("result");
+        if (resArray.length() == 0) {
+            throw new Exception("no sales order found");
+        }
+        String status = resArray.getJSONObject(0).getString("status");
+        if (!status.equals("open")) {
+            String newStatus = "open";
+            JSONArray itemSalesArray = Database.executeQuery("select id, quantity, rate_per_quantity, total, item_id from itemsales where salesorder_id = '" +
+                    salesOrderID + "'").getJSONArray("result");
+            for (int i = 0, n = itemSalesArray.length(); i < n; i++) {
+                int item_id = itemSalesArray.getJSONObject(i).getInt("item_id");
+                int quantity = itemSalesArray.getJSONObject(i).getInt("quantity");
+                JSONObject itemJSON = Database.executeQuery("select physical_stock_on_hand, physical_committed_stock, physical_available_for_sale, accounting_stock_on_hand, accounting_committed_stock, accounting_available_for_sale from items where id = '" +
+                        item_id + "'");
+                JSONArray result = itemJSON.getJSONArray("result");
+                if (result.length() == 0) {
+                    throw new Exception("Item doesn't exist");
+                }
+                int physicalAvailableForSale = result.getJSONObject(0).getInt("physical_available_for_sale");
+                int physicalStockOnHand = result.getJSONObject(0).getInt("physical_stock_on_hand");
+                int accountingStockOnHand = result.getJSONObject(0).getInt("accounting_stock_on_hand");
+                int physicalCommittedStock = result.getJSONObject(0).getInt("physical_committed_stock");
+                int accountingCommittedStock = result.getJSONObject(0).getInt("accounting_committed_stock");
+                int accountingAvailableForSale = result.getJSONObject(0).getInt("accounting_available_for_sale");
+                Database.executeUpdate("update items set physical_committed_stock=?, physical_available_for_sale=?, accounting_committed_stock=?, accounting_available_for_sale=? where id = ?", new Object[] {
+                        physicalCommittedStock + quantity,
+                        physicalAvailableForSale - quantity,
+                        accountingCommittedStock + quantity,
+                        accountingAvailableForSale - quantity,
+                        item_id
+                });
+            }
+            Database.executeUpdate("update salesorders set status=? where id=?", new Object[] {
+                    newStatus,
+                    salesOrderID
+            });
+        }
+        return getSalesOrder(organizationID, salesOrderID);
+    }
+
+    public JSONObject invoiceSalesOrder(int organizationID, int salesOrderID) throws Exception {
+        JSONObject resJSON = Database.executeQuery("select customer_id, total_price, is_invoiced, status from salesorders where id = '" +
+               salesOrderID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resArray = resJSON.getJSONArray("result");
+        System.out.println(resArray);
+        if (resArray.length() == 0) {
+            throw new Exception("no sales order found");
+        }
+        String status = resArray.getJSONObject(0).getString("status");
+        int customerID = resArray.getJSONObject(0).getInt("customer_id");
+        float totalPrice = resArray.getJSONObject(0).getFloat("total_price");
+        boolean isInvoiced = resArray.getJSONObject(0).getBoolean("is_invoiced");
+        if (!isInvoiced) {
+            if (!status.equals("open")) {
+                openSalesOrder(organizationID, salesOrderID);
+            }
+            Database.executeUpdate("update salesorders set is_invoiced = ? where id = ?", new Object[] {
+                    true,
+                    salesOrderID
+            });
+            float receivables = Database.executeQuery("select receivables from customers where id = '" +
+                    customerID + "'").getJSONArray("result").getJSONObject(0).getFloat("receivables");
+            Database.executeUpdate("update customers set receivables = ? where id = ?", new Object[] {
+                    totalPrice + receivables,
+                    customerID
+            });
+            JSONArray itemSalesArray = Database.executeQuery("select id, quantity, rate_per_quantity, total, item_id from itemsales where salesorder_id = '" +
+                    salesOrderID + "'").getJSONArray("result");
+            for (int i = 0, n = itemSalesArray.length(); i < n; i++) {
+                int item_id = itemSalesArray.getJSONObject(i).getInt("item_id");
+                int quantity = itemSalesArray.getJSONObject(i).getInt("quantity");
+                JSONObject itemJSON = Database.executeQuery("select accounting_stock_on_hand, accounting_committed_stock, accounting_available_for_sale from items where id = '" +
+                        item_id + "'");
+                JSONArray result = itemJSON.getJSONArray("result");
+                if (result.length() == 0) {
+                    throw new Exception("Item doesn't exist");
+                }
+                int accountingStockOnHand = result.getJSONObject(0).getInt("accounting_stock_on_hand");
+                int accountingCommittedStock = result.getJSONObject(0).getInt("accounting_committed_stock");
+                int accountingAvailableForSale = result.getJSONObject(0).getInt("accounting_available_for_sale");
+                Database.executeUpdate("update items set accounting_stock_on_hand=?, accounting_committed_stock=? where id = ?", new Object[] {
+                        accountingStockOnHand - quantity,
+                        accountingCommittedStock - quantity,
+                        item_id
+                });
+            }
+        }
+        return getSalesOrder(organizationID, salesOrderID);
     }
 }
