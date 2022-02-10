@@ -1,12 +1,8 @@
 package com.inventory.model.objects.item;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.inventory.model.database.Database;
 import org.json.JSONArray;
 import org.json.JSONObject;
-
-import javax.xml.crypto.Data;
 import java.sql.*;
 
 public class ItemDAO {

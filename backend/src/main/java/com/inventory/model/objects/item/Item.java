@@ -15,19 +15,19 @@ public class Item {
     private int accountingAvailableForSale;
     private int organizationID;
 
-    public Item(String name, float salesRate, float purchaseRate, int organizationID) {
+    public Item(String name, float salesRate, float purchaseRate, int openingStock, int organizationID) {
         this.name = name;
         this.salesRate = salesRate;
         this.purchaseRate = purchaseRate;
         this.organizationID = organizationID;
         this.type = "Goods";
         this.unit = "pcs";
-        this.physicalStockOnHand = 0;
+        this.physicalStockOnHand = openingStock;
         this.physicalCommittedStock = 0;
-        this.physicalAvailableForSale = 0;
-        this.accountingStockOnHand = 0;
+        this.physicalAvailableForSale = openingStock;
+        this.accountingStockOnHand = openingStock;
         this.accountingCommittedStock = 0;
-        this.accountingAvailableForSale = 0;
+        this.accountingAvailableForSale = openingStock;
     }
 
     public int getId() {

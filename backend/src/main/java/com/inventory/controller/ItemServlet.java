@@ -61,11 +61,7 @@ public class ItemServlet extends HttpServlet {
                 int organizationID = Integer.parseInt(request.getParameter("organization_id"));
                 JSONObject itemJSON = new JSONObject(request.getParameter("json_string"));
                 ItemDAO itemDAO = new ItemDAO();
-                Item item = new Item(itemJSON.getString("name"), itemJSON.getFloat("sales_rate"), itemJSON.getFloat("purchase_rate"), organizationID);
-                item.setPhysicalStockOnHand(itemJSON.getInt("opening_stock"));
-                item.setAccountingStockOnHand(itemJSON.getInt("opening_stock"));
-                item.setAccountingAvailableForSale(itemJSON.getInt("opening_stock"));
-                item.setPhysicalAvailableForSale(itemJSON.getInt("opening_stock"));
+                Item item = new Item(itemJSON.getString("name"), itemJSON.getFloat("sales_rate"), itemJSON.getFloat("purchase_rate"), itemJSON.getInt("opening_stock"), organizationID);
                 JSONObject resultJSON = itemDAO.createItem(item);
                 if (resultJSON.getInt("code") == 0) {
                     response.setStatus(200);

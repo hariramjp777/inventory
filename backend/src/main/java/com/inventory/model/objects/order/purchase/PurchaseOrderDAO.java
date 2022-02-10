@@ -1,46 +1,73 @@
 package com.inventory.model.objects.order.purchase;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.inventory.model.database.Database;
 import com.inventory.model.objects.order.Order;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
-import java.sql.*;
 
 public class PurchaseOrderDAO {
-    public JsonObject placePurchaseOrder(int organizationID, int vendorID, String purchaseOrderRefNumber, Order[] orders) throws SQLException, ClassNotFoundException {
-        Connection connection = Database.initializeDataBase();
-        PreparedStatement preparedStatement = connection.prepareStatement("insert into purchaseorders (vendor_id, purchaseorder_ref_number) values(?,?)");
-        preparedStatement.setInt(1, vendorID);
-        preparedStatement.setString(2, purchaseOrderRefNumber);
-        preparedStatement.executeUpdate();
-        Statement statement = connection.createStatement();
-        ResultSet rs = statement.executeQuery("select id from purchaseorders where purchaseorder_ref_number = '" + purchaseOrderRefNumber + "'");
-        rs.next();
-        int purchaseOrderID = rs.getInt(1);
-        for(Order order : orders) {
-            Statement statement1 = connection.createStatement();
-            ResultSet rs1 = statement1.executeQuery("select purchase_rate, stock_on_hand from items where id = '" + order.itemID + "'");
-            rs1.next();
-            int ratePerQuantity = rs1.getInt(1);
-            int stockOnHand = rs1.getInt(2);
-            PreparedStatement preparedStatement1 = connection.prepareStatement("insert into itempurchaseorders (item_id, quantity, rate_per_quantity, purchase_order_id) values (?,?,?,?)");
-            preparedStatement1.setInt(1, order.itemID);
-            preparedStatement1.setInt(2, order.quantity);
-            preparedStatement1.setInt(3, ratePerQuantity);
-            preparedStatement1.setInt(4, purchaseOrderID);
-            preparedStatement1.executeUpdate();
-            int availableForSale = stockOnHand + order.quantity;
-            PreparedStatement preparedStatement2 = connection.prepareStatement("update items set available_for_sale = ? where id = ?");
-            preparedStatement2.setInt(1, availableForSale);
-            preparedStatement2.setInt(2, order.itemID);
-            preparedStatement2.executeUpdate();
+    public JSONObject createPurchaseOrder(PurchaseOrder purchaseOrder) throws Exception {
+        JSONObject json = new JSONObject();
+        int aiID = Database.executeUpdate("insert into purchaseorders (vendor_id, organization_id, status, is_received, is_billed, purchase_order_ref_number) values (?,?,?,?,?,?)", new Object[] {
+                purchaseOrder.getVendorID(),
+                purchaseOrder.getOrganizationID(),
+                purchaseOrder.getStatus(),
+                purchaseOrder.isReceived(),
+                purchaseOrder.isBilled(),
+                purchaseOrder.getPurchaseOrderRefNumber()
+        });
+        float totalOrderPrice = 0.0f;
+        JSONArray lineItems = new JSONArray();
+        for (Order order: purchaseOrder.getOrders()) {
+            JSONObject resJSON = Database.executeQuery("select purchase_rate, physical_stock_on_hand, physical_committed_stock, physical_available_for_sale, accounting_stock_on_hand, accounting_committed_stock, accounting_available_for_sale from items where id = '" +
+                    order.getItemID() + "'");
+            JSONArray result = resJSON.getJSONArray("result");
+            if (result.length() == 0) {
+                throw new Exception("Item doesn't exist");
+            }
+            float purchaseRate = result.getJSONObject(0).getFloat("purchase_rate");
+            int physicalAvailableForSale = result.getJSONObject(0).getInt("physical_available_for_sale");
+            int physicalStockOnHand = result.getJSONObject(0).getInt("physical_stock_on_hand");
+            int accountingStockOnHand = result.getJSONObject(0).getInt("accounting_stock_on_hand");
+            int physicalCommittedStock = result.getJSONObject(0).getInt("physical_committed_stock");
+            int accountingCommittedStock = result.getJSONObject(0).getInt("accounting_committed_stock");
+            int accountingAvailableForSale = result.getJSONObject(0).getInt("accounting_available_for_sale");
+            float totalPrice = purchaseRate * order.getQuantity();
+            totalOrderPrice += totalPrice;
+            int aiID1 = Database.executeUpdate("insert into itempurchases (item_id, quantity, rate_per_quantity, total) values(?,?,?,?)", new Object[] {
+                    order.getItemID(),
+                    order.getQuantity(),
+                    purchaseRate,
+                    totalPrice
+            });
+            lineItems.put(Database.executeQuery("select item_id, quantity, rate_per_quantity, total from itempurchases where ai_id = '" +
+                    aiID1 + "'").getJSONArray("result").getJSONObject(0));
+            if (purchaseOrder.isReceived()) {
+                Database.executeUpdate("update items set physical_stock_on_hand=?, physical_available_for_sale=? where id = ?", new Object[] {
+                        physicalStockOnHand + order.getQuantity(),
+                        physicalAvailableForSale - order.getQuantity(),
+                        order.getItemID()
+                });
+            }
+            if (purchaseOrder.isBilled()) {
+                Database.executeUpdate("update items set accounting_stock_on_hand=?, accounting_available_for_sale=? where id = ?", new Object[] {
+                        accountingStockOnHand + order.getQuantity(),
+                        accountingAvailableForSale - order.getQuantity(),
+                        order.getItemID()
+                });
+            }
         }
-        Gson gson = new Gson();
-        JsonObject json = gson.toJsonTree(new Object()).getAsJsonObject();
-        json.addProperty("code", 0);
-        json.addProperty("message", "success");
-        json.add("created_purchase_order", gson.toJsonTree(new PurchaseOrder(organizationID, vendorID, orders, purchaseOrderRefNumber)));
+        Database.executeUpdate("update purchaseorders set total_price=? where ai_id=?", new Object[] {
+                totalOrderPrice,
+                aiID
+        });
+        JSONObject createdPurchaseOrderJSON = Database.executeQuery("select id, vendor_id, organization_id, status, is_billed, is_received, total_price, purchase_order_ref_number from purchaseorders where ai_id = '" +
+                aiID + "'").getJSONArray("result").getJSONObject(0);
+        createdPurchaseOrderJSON.put("lineItems", lineItems);
+        json.put("code", 0);
+        json.put("message", "success");
+        json.put("created_purchase_order", createdPurchaseOrderJSON);
         return json;
     }
 }
