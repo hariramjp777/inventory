@@ -22,7 +22,33 @@ import java.util.ArrayList;
 public class SalesOrderServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
+        PrintWriter out = response.getWriter();
+        response.setContentType("application/json");
+        if (!Authentication.isAuthenticated(request)) {
+            response.setStatus(400);
+            response.getWriter().println("{'code': '1000'}");
+        }
+        else {
+            try {
+                User user = Authentication.getUser(request);
+                int organizationID = Integer.parseInt(request.getParameter("organization_id"));
+                int salesOrderID = Integer.parseInt(request.getParameter("salesorder_id"));
+                SalesOrderDAO salesOrderDAO = new SalesOrderDAO();
+                JSONObject resultJSON = salesOrderDAO.getSalesOrder(organizationID, salesOrderID);
+                if (resultJSON.getInt("code") == 0) {
+                    response.setStatus(200);
+                    out.println(resultJSON.toString());
+                }
+                else {
+                    response.setStatus(404);
+                    out.println(resultJSON.toString());
+                }
+            } catch (SQLException | ClassNotFoundException e) {
+                response.setStatus(500);
+                out.println("{'code': '500', 'message': 'Internal Server Error'}");
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override

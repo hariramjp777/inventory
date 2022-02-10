@@ -1,6 +1,8 @@
 package com.inventory.controller;
 
+import com.google.gson.Gson;
 import com.inventory.auth.Authentication;
+import com.inventory.model.objects.user.User;
 import org.json.JSONObject;
 
 import javax.servlet.*;

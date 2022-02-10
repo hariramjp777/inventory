@@ -5,6 +5,8 @@ import com.inventory.model.objects.order.Order;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.sql.SQLException;
+
 
 public class PurchaseOrderDAO {
     public JSONObject createPurchaseOrder(PurchaseOrder purchaseOrder) throws Exception {
@@ -17,6 +19,8 @@ public class PurchaseOrderDAO {
                 purchaseOrder.isBilled(),
                 purchaseOrder.getPurchaseOrderRefNumber()
         });
+        int purchaseOrderID = Database.executeQuery("select id from purchaseorders where ai_id = '" +
+                aiID + "'").getJSONArray("result").getJSONObject(0).getInt("id");
         float totalOrderPrice = 0.0f;
         JSONArray lineItems = new JSONArray();
         for (Order order: purchaseOrder.getOrders()) {
@@ -35,11 +39,12 @@ public class PurchaseOrderDAO {
             int accountingAvailableForSale = result.getJSONObject(0).getInt("accounting_available_for_sale");
             float totalPrice = purchaseRate * order.getQuantity();
             totalOrderPrice += totalPrice;
-            int aiID1 = Database.executeUpdate("insert into itempurchases (item_id, quantity, rate_per_quantity, total) values(?,?,?,?)", new Object[] {
+            int aiID1 = Database.executeUpdate("insert into itempurchases (item_id, quantity, rate_per_quantity, total, purchaseorder_id) values(?,?,?,?,?)", new Object[] {
                     order.getItemID(),
                     order.getQuantity(),
                     purchaseRate,
-                    totalPrice
+                    totalPrice,
+                    purchaseOrderID
             });
             lineItems.put(Database.executeQuery("select item_id, quantity, rate_per_quantity, total from itempurchases where ai_id = '" +
                     aiID1 + "'").getJSONArray("result").getJSONObject(0));
@@ -68,6 +73,38 @@ public class PurchaseOrderDAO {
         json.put("code", 0);
         json.put("message", "success");
         json.put("created_purchase_order", createdPurchaseOrderJSON);
+        return json;
+    }
+
+    public JSONObject getPurchaseOrder(int organizationID, int purchaseOrderID) throws SQLException, ClassNotFoundException {
+        JSONObject json = new JSONObject();
+        JSONObject purchaseOrderJSON = Database.executeQuery("select id, vendor_id, organization_id, status, is_billed, is_received, total_price, purchase_order_ref_number from purchaseorders where id = '" +
+                purchaseOrderID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resultArray = purchaseOrderJSON.getJSONArray("result");
+        if (resultArray.length() == 0) {
+            json.put("code", 110);
+            json.put("message", "No purchase Order found");
+            return json;
+        }
+        JSONObject itempurchasesJSON = Database.executeQuery("select id, quantity, rate_per_quantity, total, item_id from itempurchases where purchaseorder_id = '" +
+                purchaseOrderID + "'");
+        JSONArray items = new JSONArray();
+        JSONArray itemPurchasesArray = itempurchasesJSON.getJSONArray("result");
+        if (itemPurchasesArray.length() != 0) {
+            for (int i = 0, n = itemPurchasesArray.length(); i < n; i++) {
+                int itemID = itemPurchasesArray.getJSONObject(i).getInt("item_id");
+                JSONObject item = Database.executeQuery("select id, name, unit, type from items where id = '" +
+                        itemID + "'").getJSONArray("result").getJSONObject(0);
+                item.put("quantity", itemPurchasesArray.getJSONObject(i).getInt("quantity"));
+                item.put("rate_per_quantity", itemPurchasesArray.getJSONObject(i).getInt("rate_per_quantity"));
+                item.put("total_price", itemPurchasesArray.getJSONObject(i).getInt("total"));
+                items.put(item);
+            }
+            resultArray.getJSONObject(0).put("items", items);
+        }
+        json.put("code", 0);
+        json.put("purchase_order", resultArray.get(0));
         return json;
     }
 }
