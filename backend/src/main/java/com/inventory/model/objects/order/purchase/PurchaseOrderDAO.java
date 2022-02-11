@@ -178,4 +178,45 @@ public class PurchaseOrderDAO {
         }
         return getPurchaseOrder(organizationID, purchaseOrderID);
     }
+
+    public JSONObject receivePurchaseOrder(int organizationID, int purchaseOrderID) throws Exception {
+        JSONObject resJSON = Database.executeQuery("select is_received, status from purchaseorders where id = '" +
+                purchaseOrderID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resArray = resJSON.getJSONArray("result");
+        if (resArray.length() == 0) {
+            JSONObject json = new JSONObject();
+            json.put("code", 110);
+            json.put("message", "No purchase Order found");
+            return json;
+        }
+        boolean isReceived = resArray.getJSONObject(0).getBoolean("is_received");
+        if (!isReceived) {
+            Database.executeUpdate("update purchaseorders set status = ?, is_received = ? where id = ?", new Object[] {
+                    "open",
+                    true,
+                    purchaseOrderID
+            });
+            JSONArray itemPurchaseArray = Database.executeQuery("select id, quantity, rate_per_quantity, total, item_id from itempurchases where purchaseorder_id = '" +
+                    purchaseOrderID + "'").getJSONArray("result");
+            for (int i = 0, n = itemPurchaseArray.length(); i < n; i++) {
+                int item_id = itemPurchaseArray.getJSONObject(i).getInt("item_id");
+                int quantity = itemPurchaseArray.getJSONObject(i).getInt("quantity");
+                JSONObject itemJSON = Database.executeQuery("select physical_stock_on_hand, physical_available_for_sale from items where id = '" +
+                        item_id + "'");
+                JSONArray result = itemJSON.getJSONArray("result");
+                if (result.length() == 0) {
+                    throw new Exception("Item doesn't exist");
+                }
+                int physicalStockOnHand = result.getJSONObject(0).getInt("physical_stock_on_hand");
+                int physicalAvailableForSale = result.getJSONObject(0).getInt("physical_available_for_sale");
+                Database.executeUpdate("update items set physical_stock_on_hand=?, physical_available_for_sale=? where id = ?", new Object[] {
+                        physicalStockOnHand + quantity,
+                        physicalAvailableForSale + quantity,
+                        item_id
+                });
+            }
+        }
+        return getPurchaseOrder(organizationID, purchaseOrderID);
+    }
 }
