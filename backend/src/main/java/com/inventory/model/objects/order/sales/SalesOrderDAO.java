@@ -77,7 +77,7 @@ public class SalesOrderDAO {
 
     public JSONObject getSalesOrder(int organizationID, int salesOrderID) throws SQLException, ClassNotFoundException {
         JSONObject json = new JSONObject();
-        JSONObject salesOrderJSON = Database.executeQuery("select id, customer_id, organization_id, status, is_invoiced, total_price, sales_order_ref_number from salesorders where id = '" +
+        JSONObject salesOrderJSON = Database.executeQuery("select id, customer_id, organization_id, status, is_shipped, is_invoiced, total_price, sales_order_ref_number from salesorders where id = '" +
                  salesOrderID + "'" + " and organization_id = '" +
                  organizationID + "'");
         JSONArray resultArray = salesOrderJSON.getJSONArray("result");
@@ -195,6 +195,54 @@ public class SalesOrderDAO {
                 Database.executeUpdate("update items set accounting_stock_on_hand=?, accounting_committed_stock=? where id = ?", new Object[] {
                         accountingStockOnHand - quantity,
                         accountingCommittedStock - quantity,
+                        item_id
+                });
+            }
+        }
+        return getSalesOrder(organizationID, salesOrderID);
+    }
+
+    public JSONObject shipSalesOrder(int organizationID, int salesOrderID) throws Exception {
+        JSONObject resJSON = Database.executeQuery("select is_shipped, status from salesorders where id = '" +
+                salesOrderID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resArray = resJSON.getJSONArray("result");
+        System.out.println(resArray);
+        if (resArray.length() == 0) {
+            JSONObject json = new JSONObject();
+            json.put("code", 110);
+            json.put("message", "No sales Order found");
+            return json;
+        }
+        String status = resArray.getJSONObject(0).getString("status");
+        boolean isShipped = resArray.getJSONObject(0).getBoolean("is_shipped");
+        if (!isShipped) {
+            if (!status.equals("open")) {
+                JSONObject json = new JSONObject();
+                json.put("code", 110);
+                json.put("message", "Draft sales order");
+                return json;
+            }
+            Database.executeUpdate("update salesorders set is_shipped = ? where id = ?", new Object[] {
+                    true,
+                    salesOrderID
+            });
+            JSONArray itemSalesArray = Database.executeQuery("select id, quantity, rate_per_quantity, total, item_id from itemsales where salesorder_id = '" +
+                    salesOrderID + "'").getJSONArray("result");
+            for (int i = 0, n = itemSalesArray.length(); i < n; i++) {
+                int item_id = itemSalesArray.getJSONObject(i).getInt("item_id");
+                int quantity = itemSalesArray.getJSONObject(i).getInt("quantity");
+                JSONObject itemJSON = Database.executeQuery("select physical_stock_on_hand, physical_committed_stock from items where id = '" +
+                        item_id + "'");
+                JSONArray result = itemJSON.getJSONArray("result");
+                if (result.length() == 0) {
+                    throw new Exception("Item doesn't exist");
+                }
+                int physicalStockOnHand = result.getJSONObject(0).getInt("physical_stock_on_hand");
+                int physicalCommittedStock = result.getJSONObject(0).getInt("physical_committed_stock");
+                Database.executeUpdate("update items set physical_stock_on_hand=?, physical_committed_stock=? where id = ?", new Object[] {
+                        physicalStockOnHand - quantity,
+                        physicalCommittedStock - quantity,
                         item_id
                 });
             }
