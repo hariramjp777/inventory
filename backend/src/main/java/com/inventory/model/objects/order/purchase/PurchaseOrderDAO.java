@@ -107,4 +107,75 @@ public class PurchaseOrderDAO {
         json.put("purchase_order", resultArray.get(0));
         return json;
     }
+
+    public JSONObject openPurchaseOrder(int organizationID, int purchaseOrderID) throws Exception {
+        JSONObject resJSON = Database.executeQuery("select status from purchaseorders where id = '" +
+                purchaseOrderID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resArray = resJSON.getJSONArray("result");
+        if (resArray.length() == 0) {
+            JSONObject json = new JSONObject();
+            json.put("code", 110);
+            json.put("message", "No purchase Order found");
+            return json;
+        }
+        String status = resArray.getJSONObject(0).getString("status");
+        if (!status.equals("open")) {
+            String newStatus = "open";
+            Database.executeUpdate("update purchaseorders set status=? where id=?", new Object[] {
+                    newStatus,
+                    purchaseOrderID
+            });
+        }
+        return getPurchaseOrder(organizationID, purchaseOrderID);
+    }
+
+    public JSONObject billPurchaseOrder(int organizationID, int purchaseOrderID) throws Exception {
+        JSONObject resJSON = Database.executeQuery("select vendor_id, total_price, is_billed, status from purchaseorders where id = '" +
+                purchaseOrderID + "'" + " and organization_id = '" +
+                organizationID + "'");
+        JSONArray resArray = resJSON.getJSONArray("result");
+        if (resArray.length() == 0) {
+            JSONObject json = new JSONObject();
+            json.put("code", 110);
+            json.put("message", "No purchase Order found");
+            return json;
+        }
+        int vendorID = resArray.getJSONObject(0).getInt("vendor_id");
+        float totalPrice = resArray.getJSONObject(0).getFloat("total_price");
+        boolean isBilled = resArray.getJSONObject(0).getBoolean("is_billed");
+        if (!isBilled) {
+            Database.executeUpdate("update purchaseorders set status = ?, is_billed = ? where id = ?", new Object[] {
+                    "open",
+                    true,
+                    purchaseOrderID
+            });
+            float payables = Database.executeQuery("select payables from vendors where id = '" +
+                    vendorID + "'").getJSONArray("result").getJSONObject(0).getFloat("payables");
+            Database.executeUpdate("update vendors set payables = ? where id = ?", new Object[] {
+                    totalPrice + payables,
+                    vendorID
+            });
+            JSONArray itemPurchaseArray = Database.executeQuery("select id, quantity, rate_per_quantity, total, item_id from itempurchases where purchaseorder_id = '" +
+                    purchaseOrderID + "'").getJSONArray("result");
+            for (int i = 0, n = itemPurchaseArray.length(); i < n; i++) {
+                int item_id = itemPurchaseArray.getJSONObject(i).getInt("item_id");
+                int quantity = itemPurchaseArray.getJSONObject(i).getInt("quantity");
+                JSONObject itemJSON = Database.executeQuery("select accounting_stock_on_hand, accounting_available_for_sale from items where id = '" +
+                        item_id + "'");
+                JSONArray result = itemJSON.getJSONArray("result");
+                if (result.length() == 0) {
+                    throw new Exception("Item doesn't exist");
+                }
+                int accountingStockOnHand = result.getJSONObject(0).getInt("accounting_stock_on_hand");
+                int accountingAvailableForSale = result.getJSONObject(0).getInt("accounting_available_for_sale");
+                Database.executeUpdate("update items set accounting_stock_on_hand=?, accounting_available_for_sale=? where id = ?", new Object[] {
+                        accountingStockOnHand + quantity,
+                        accountingAvailableForSale + quantity,
+                        item_id
+                });
+            }
+        }
+        return getPurchaseOrder(organizationID, purchaseOrderID);
+    }
 }
